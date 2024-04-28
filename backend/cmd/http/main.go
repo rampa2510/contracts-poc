@@ -2,13 +2,15 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/rampa2510/contracts-poc/config"
+	"github.com/rampa2510/contracts-poc/db/seed"
 	"github.com/rampa2510/contracts-poc/internal/api"
+	"github.com/rampa2510/contracts-poc/internal/api/middleware"
 	"github.com/rampa2510/contracts-poc/internal/storage"
 	"github.com/rampa2510/contracts-poc/pkg/shutdown"
 )
@@ -23,7 +25,7 @@ func main() {
 	// load config
 	env, err := config.LoadConfig()
 	if err != nil {
-		fmt.Printf("error: %v", err)
+		slog.Error("error: %v", err)
 		exitCode = 1
 		return
 	}
@@ -32,7 +34,7 @@ func main() {
 
 	defer cleanup()
 	if err != nil {
-		fmt.Printf("error: %v", err)
+		slog.Error("error: %v", err)
 		exitCode = 1
 		return
 	}
@@ -49,7 +51,7 @@ func run(env config.EnvVars) (func(), error) {
 	// start the server
 	go func() {
 		if err := app.ListenAndServe(); err != nil {
-			fmt.Println(err)
+			slog.Error("Error while starting server - %v", err)
 		}
 	}()
 
@@ -58,26 +60,34 @@ func run(env config.EnvVars) (func(), error) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := app.Shutdown(ctx); err != nil {
-			fmt.Println(err)
+			slog.Error("Error while shutting down server - %v", err)
 		}
 	}, nil
 }
 
 func buildServer(env config.EnvVars) (*http.Server, func(), error) {
-	fmt.Println("Initializing DB connection")
+	slog.Info("Initializing DB connection")
 	// init the storage
 	db, err := storage.BootstrapSqlite3(env.DB_FILE, 10*time.Second)
 	if err != nil {
 		return nil, nil, err
 	}
-	fmt.Println("Initialized DB connection")
+	slog.Info("Initialized DB connection")
 
-	fmt.Println("Initializing routers")
+	slog.Info("Seeding database")
+
+	if err := seed.SeedToDb(db); err != nil {
+		return nil, nil, err
+	}
+
+	slog.Info("Seeded Database")
+
+	slog.Info("Initializing routers")
 
 	serverConfig := api.NewAPIServer("0.0.0.0:"+env.PORT, db)
 	app := serverConfig.InitaliseHTTPServer()
 
-	fmt.Println("Initialized routers")
+	slog.Info("Initialized routers")
 
 	return app, func() {
 		storage.CloseSqlite3(db)

@@ -22,7 +22,7 @@ func BootstrapSqlite3(filePath string, timeout time.Duration) (*sql.DB, error) {
 	db.SetConnMaxLifetime(timeout)
 
 	if err := db.PingContext(ctx); err != nil {
-		db.Close()
+		CloseSqlite3(db)
 		return nil, err
 	}
 
