@@ -1,12 +1,16 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"time"
 
 	"github.com/rampa2510/contracts-poc/config"
+	"github.com/rampa2510/contracts-poc/internal/api"
 	"github.com/rampa2510/contracts-poc/internal/storage"
+	"github.com/rampa2510/contracts-poc/pkg/shutdown"
 )
 
 func main() {
@@ -32,36 +36,50 @@ func main() {
 		exitCode = 1
 		return
 	}
+
+	shutdown.Gracefully()
 }
 
 func run(env config.EnvVars) (func(), error) {
-	cleanup, err := buildServer(env)
+	app, cleanup, err := buildServer(env)
 	if err != nil {
 		return nil, err
 	}
 
 	// start the server
-	// go func() {
-	// 	app.Listen("0.0.0.0:" + env.PORT)
-	// }()
-	//
-	// return a function to close the server and database
+	go func() {
+		if err := app.ListenAndServe(); err != nil {
+			fmt.Println(err)
+		}
+	}()
+
 	return func() {
 		cleanup()
-		// app.Shutdown()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := app.Shutdown(ctx); err != nil {
+			fmt.Println(err)
+		}
 	}, nil
 }
 
-func buildServer(env config.EnvVars) (func(), error) {
+func buildServer(env config.EnvVars) (*http.Server, func(), error) {
 	fmt.Println("Initializing DB connection")
 	// init the storage
 	db, err := storage.BootstrapSqlite3(env.DB_FILE, 10*time.Second)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	fmt.Println("Initialized DB connection")
 
-	return func() {
+	fmt.Println("Initializing routers")
+
+	serverConfig := api.NewAPIServer("0.0.0.0:"+env.PORT, db)
+	app := serverConfig.InitaliseHTTPServer()
+
+	fmt.Println("Initialized routers")
+
+	return app, func() {
 		storage.CloseSqlite3(db)
 	}, nil
 }
