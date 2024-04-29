@@ -10,7 +10,6 @@ import (
 	"github.com/rampa2510/contracts-poc/config"
 	"github.com/rampa2510/contracts-poc/db/seed"
 	"github.com/rampa2510/contracts-poc/internal/api"
-	"github.com/rampa2510/contracts-poc/internal/api/middleware"
 	"github.com/rampa2510/contracts-poc/internal/storage"
 	"github.com/rampa2510/contracts-poc/pkg/shutdown"
 )
@@ -84,7 +83,7 @@ func buildServer(env config.EnvVars) (*http.Server, func(), error) {
 
 	slog.Info("Initializing routers")
 
-	serverConfig := api.NewAPIServer("0.0.0.0:"+env.PORT, db)
+	serverConfig := api.NewAPIServer(":"+env.PORT, db)
 	app := serverConfig.InitaliseHTTPServer()
 
 	slog.Info("Initialized routers")

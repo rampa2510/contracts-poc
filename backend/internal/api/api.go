@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"net/http"
 
-	// "github.com/rampa2510/contracts-poc/internal/api/middleware"
-	// "github.com/rampa2510/contracts-poc/internal/api/services/user"
+	"github.com/rampa2510/contracts-poc/internal/api/middleware"
+	"github.com/rampa2510/contracts-poc/internal/api/services/user"
 	"github.com/rampa2510/contracts-poc/internal/utils"
 	"golang.org/x/exp/slog"
 )
@@ -23,6 +23,8 @@ func NewAPIServer(addr string, db *sql.DB) *APIServer {
 }
 
 func (serverConfig *APIServer) InitaliseHTTPServer() *http.Server {
+	utils.InitialiseValidation()
+
 	router := http.NewServeMux()
 
 	router.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
@@ -32,22 +34,22 @@ func (serverConfig *APIServer) InitaliseHTTPServer() *http.Server {
 		utils.SendResponse(w, http.StatusOK, response)
 	})
 
-	router.HandleFunc("GET /users", func(w http.ResponseWriter, r *http.Request) {
-		resp := map[string]string{
-			"status": "Ok",
-		}
-		utils.SendResponse(w, http.StatusOK, resp)
-	})
+	// router.HandleFunc("GET /users", func(w http.ResponseWriter, r *http.Request) {
+	// 	resp := map[string]string{
+	// 		"status": "Ok",
+	// 	}
+	// 	utils.SendResponse(w, http.StatusOK, resp)
+	// })
 
-	// userStorage := user.NewUserDb(serverConfig.db)
-	// userController := user.NewUserController(userStorage)
-	// user.RegisterUserRouter(router, userController)
+	userStorage := user.NewUserDb(serverConfig.db)
+	userController := user.NewUserController(userStorage)
+	user.RegisterUserRouter(router, userController)
 
 	slog.Info("Server running", "addr", serverConfig.addr)
 
-	// stack := middleware.CreateStack(middleware.Logging, middleware.ErrorHandling)
+	stack := middleware.CreateStack(middleware.Logging, middleware.ErrorHandling)
 
-	server := &http.Server{Addr: serverConfig.addr, Handler: router}
+	server := &http.Server{Addr: serverConfig.addr, Handler: stack(router)}
 
 	return server
 }

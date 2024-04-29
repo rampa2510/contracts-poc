@@ -63,7 +63,7 @@ func (s *UserStorage) getUsers() ([]userDb, error) {
 
 	defer rows.Close()
 
-	users := make([]userDb, 3)
+	users := make([]userDb, 0)
 
 	for rows.Next() {
 		var user userDb
@@ -85,6 +85,9 @@ func (s *UserStorage) getUser(id int) (*userDb, error) {
 	var user userDb
 	err := s.getUserStm.QueryRow(id).Scan(&user.ID, &user.Name, &user.Email)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
 		return nil, err
 	}
 

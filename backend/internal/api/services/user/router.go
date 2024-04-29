@@ -13,6 +13,7 @@ func RegisterUserRouter(router *http.ServeMux, userController *UserController) {
 	router.HandleFunc("POST /user", userController.Create)
 	router.HandleFunc("GET /user", userController.GetAllUsers)
 	router.HandleFunc("GET /user/{id}", userController.GetAUser)
+	router.HandleFunc("PUT /user/{id}", userController.GetAUser)
 
 	slog.Info("Initialised User router")
 }

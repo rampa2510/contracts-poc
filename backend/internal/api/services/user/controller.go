@@ -1,7 +1,6 @@
 package user
 
 import (
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -19,10 +18,16 @@ func NewUserController(s *UserStorage) *UserController {
 	return &UserController{storage: s}
 }
 
-func (uc *UserController) Create(w http.ResponseWriter, r *http.Request) {
-	var user userDb
+type createUserRequest struct {
+	Name  string `json:"name" validate:"required"`
+	Email string `json:"email" validate:"required,email"`
+}
 
-	err := json.NewDecoder(r.Body).Decode(&user)
+func (uc *UserController) Create(w http.ResponseWriter, r *http.Request) {
+	var req createUserRequest
+
+	err, validationErrors := utils.ValidateRequest(r, &req)
+
 	if err != nil {
 		panic(&middleware.APIError{
 			Message: "Invalid request body",
@@ -30,7 +35,12 @@ func (uc *UserController) Create(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	userId, err := uc.storage.createUser(user.Name, user.Email)
+	if len(validationErrors) > 0 {
+		utils.SendResponse(w, http.StatusBadRequest, validationErrors)
+		return
+	}
+
+	userId, err := uc.storage.createUser(req.Name, req.Email)
 	if err != nil {
 		slog.Error("Error while creating new user", err)
 		panic(&middleware.APIError{Message: "Internal Server Error", Status: http.StatusInternalServerError})
@@ -64,7 +74,6 @@ func (uc *UserController) GetAUser(w http.ResponseWriter, r *http.Request) {
 			Status:  http.StatusBadRequest,
 		})
 	}
-
 	user, err := uc.storage.getUser(userId)
 	if err != nil {
 		panic(&middleware.APIError{
@@ -73,4 +82,7 @@ func (uc *UserController) GetAUser(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	utils.SendResponse(w, http.StatusOK, user)
+}
+
+func (uc *UserController) UpdateAUser(w http.ResponseWriter, r *http.Request) {
 }
