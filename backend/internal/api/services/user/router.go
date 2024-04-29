@@ -5,8 +5,6 @@ import (
 	"net/http"
 )
 
-type userRouter http.Handler
-
 func RegisterUserRouter(router *http.ServeMux, userController *UserController) {
 	slog.Info("Initialising User router")
 

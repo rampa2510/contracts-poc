@@ -11,6 +11,7 @@ import (
 	"github.com/rampa2510/contracts-poc/db/seed"
 	"github.com/rampa2510/contracts-poc/internal/api"
 	"github.com/rampa2510/contracts-poc/internal/storage"
+	"github.com/rampa2510/contracts-poc/internal/utils"
 	"github.com/rampa2510/contracts-poc/pkg/shutdown"
 )
 
@@ -71,6 +72,7 @@ func buildServer(env config.EnvVars) (*http.Server, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
+
 	slog.Info("Initialized DB connection")
 
 	slog.Info("Seeding database")
@@ -81,10 +83,16 @@ func buildServer(env config.EnvVars) (*http.Server, func(), error) {
 
 	slog.Info("Seeded Database")
 
+	slog.Info("Initialising AWS client")
+
+	awsClient := utils.NewAwsClient(env.AWS_REGION)
+
+	slog.Info("Initialised AWS client")
+
 	slog.Info("Initializing routers")
 
 	serverConfig := api.NewAPIServer(":"+env.PORT, db)
-	app := serverConfig.InitaliseHTTPServer()
+	app := serverConfig.InitaliseHTTPServer(&env, awsClient)
 
 	slog.Info("Initialized routers")
 

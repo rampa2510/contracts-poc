@@ -4,7 +4,9 @@ import (
 	"database/sql"
 	"net/http"
 
+	"github.com/rampa2510/contracts-poc/config"
 	"github.com/rampa2510/contracts-poc/internal/api/middleware"
+	"github.com/rampa2510/contracts-poc/internal/api/services/contracts"
 	"github.com/rampa2510/contracts-poc/internal/api/services/user"
 	"github.com/rampa2510/contracts-poc/internal/utils"
 	"golang.org/x/exp/slog"
@@ -22,7 +24,7 @@ func NewAPIServer(addr string, db *sql.DB) *APIServer {
 	}
 }
 
-func (serverConfig *APIServer) InitaliseHTTPServer() *http.Server {
+func (serverConfig *APIServer) InitaliseHTTPServer(env *config.EnvVars, awsClient *utils.AwsClient) *http.Server {
 	utils.InitialiseValidation()
 
 	router := http.NewServeMux()
@@ -34,20 +36,19 @@ func (serverConfig *APIServer) InitaliseHTTPServer() *http.Server {
 		utils.SendResponse(w, http.StatusOK, response)
 	})
 
-	// router.HandleFunc("GET /users", func(w http.ResponseWriter, r *http.Request) {
-	// 	resp := map[string]string{
-	// 		"status": "Ok",
-	// 	}
-	// 	utils.SendResponse(w, http.StatusOK, resp)
-	// })
-
+	// Initalise user routes
 	userStorage := user.NewUserDb(serverConfig.db)
 	userController := user.NewUserController(userStorage)
 	user.RegisterUserRouter(router, userController)
 
+	// Initalise contracts routes
+	contractsStorage := contracts.NewContractsStorage(serverConfig.db)
+	contractsController := contracts.NewContractsController(contractsStorage, awsClient, env)
+	contracts.RegisterContractsRouter(router, contractsController)
+
 	slog.Info("Server running", "addr", serverConfig.addr)
 
-	stack := middleware.CreateStack(middleware.Logging, middleware.ErrorHandling)
+	stack := middleware.CreateStack(middleware.Logging, middleware.ErrorHandling, middleware.CorsMiddleware)
 
 	server := &http.Server{Addr: serverConfig.addr, Handler: stack(router)}
 

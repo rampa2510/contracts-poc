@@ -24,7 +24,7 @@ func SendResponse(w http.ResponseWriter, statusCode int, v any) {
 
 func ValidateRequest[T any](r *http.Request, v T) (error, map[string]string) {
 	if err := json.NewDecoder(r.Body).Decode(&v); err != nil {
-		return fmt.Errorf("decode json: %w", err), nil
+		return fmt.Errorf("Error whle decoding json: %w", err), nil
 	}
 
 	err := validate.Struct(v)

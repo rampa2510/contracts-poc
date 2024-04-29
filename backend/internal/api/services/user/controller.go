@@ -83,6 +83,3 @@ func (uc *UserController) GetAUser(w http.ResponseWriter, r *http.Request) {
 	}
 	utils.SendResponse(w, http.StatusOK, user)
 }
-
-func (uc *UserController) UpdateAUser(w http.ResponseWriter, r *http.Request) {
-}
