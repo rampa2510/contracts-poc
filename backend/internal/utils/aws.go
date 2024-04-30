@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"context"
 	"log/slog"
 	"time"
@@ -12,6 +13,7 @@ import (
 
 type AwsClient struct {
 	presignClient *s3.PresignClient
+	s3Client      *s3.Client
 }
 
 func NewAwsClient(awsRegion string) *AwsClient {
@@ -28,7 +30,7 @@ func NewAwsClient(awsRegion string) *AwsClient {
 
 	slog.Info("Initialised aws client")
 
-	return &AwsClient{presignClient: presignClient}
+	return &AwsClient{presignClient: presignClient, s3Client: s3Client}
 }
 
 func (client *AwsClient) GetPresignedUrl(bucketName, key string) string {
@@ -44,4 +46,28 @@ func (client *AwsClient) GetPresignedUrl(bucketName, key string) string {
 
 	slog.Info("Generated presigned URL", "url", presignedPutResponse.URL)
 	return presignedPutResponse.URL
+}
+
+func (client *AwsClient) S3Download(bucket, key string) (*s3.GetObjectOutput, error) {
+	s3ObjectResp, err := client.s3Client.GetObject(context.TODO(), &s3.GetObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return s3ObjectResp, nil
+}
+
+func (client *AwsClient) S3Upload(bucket string, key string, data []byte) error {
+	_, err := client.s3Client.PutObject(context.TODO(), &s3.PutObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+		Body:   bytes.NewReader(data),
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }

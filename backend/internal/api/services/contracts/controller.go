@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 
@@ -59,5 +60,61 @@ func (cc *ContractsController) Create(w http.ResponseWriter, r *http.Request) {
 		"url":        url,
 	}
 
+	utils.SendResponse(w, http.StatusCreated, response)
+}
+
+type replaceSignatureRequest struct {
+	ContractKey string `json:"contractKey" validate:"required"`
+	ImageKey    string `json:"imageKey" validate:"required"`
+}
+
+func (cc *ContractsController) Replace(w http.ResponseWriter, r *http.Request) {
+	var req replaceSignatureRequest
+
+	err, validationErrors := utils.ValidateRequest(r, &req)
+
+	if err != nil {
+		fmt.Println(err)
+		panic(&middleware.APIError{
+			Message: "Invalid request body",
+			Status:  http.StatusBadRequest,
+		})
+	}
+
+	if len(validationErrors) > 0 {
+		utils.SendResponse(w, http.StatusBadRequest, validationErrors)
+		return
+	}
+
+	contractS3Resp, err := cc.awsClient.S3Download(cc.env.AWS_BUCKET_NAME, req.ContractKey)
+	if err != nil {
+		fmt.Println(err)
+		panic(&middleware.APIError{
+			Message: "Internal Server Error",
+			Status:  http.StatusInternalServerError,
+		})
+	}
+
+	contractInBytes, err := io.ReadAll(contractS3Resp.Body)
+	if err != nil {
+		fmt.Println(err)
+		panic(&middleware.APIError{
+			Message: "Internal Server Error",
+			Status:  http.StatusInternalServerError,
+		})
+	}
+
+	uploadErr := cc.awsClient.S3Upload(cc.env.AWS_BUCKET_NAME, "updated-contract.pdf", contractInBytes)
+	if uploadErr != nil {
+		fmt.Println(uploadErr)
+		panic(&middleware.APIError{
+			Message: "Internal Server Error",
+			Status:  http.StatusInternalServerError,
+		})
+	}
+
+	response := map[string]string{
+		"success": "Ok",
+	}
 	utils.SendResponse(w, http.StatusCreated, response)
 }

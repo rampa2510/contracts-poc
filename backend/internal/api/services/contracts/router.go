@@ -9,6 +9,7 @@ func RegisterContractsRouter(router *http.ServeMux, contractsController *Contrac
 	slog.Info("Initialising Contracts router")
 
 	router.HandleFunc("POST /contract", contractsController.Create)
+	router.HandleFunc("POST /replace-signature", contractsController.Replace)
 
 	slog.Info("Initialised Contracts router")
 }

@@ -3,6 +3,7 @@ import { jsPDF } from "jspdf";
 
 const App: React.FC = () => {
   const [text, setText] = useState<string>("");
+  const [inflSignature, setInflSignature] = useState<string>("");
   const [font, setFont] = useState<string>("Arial");
   const [title, setTitle] = useState<string>("");
   const [brand, setBrand] = useState<string>("");
@@ -12,6 +13,7 @@ const App: React.FC = () => {
   const [inflEmail, setInflEmail] = useState<string>("");
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const inflCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -36,6 +38,30 @@ const App: React.FC = () => {
       }
     }
   }, [text, font]);
+
+  useEffect(() => {
+    const canvas = inflCanvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        // Clear the canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Set the background color
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Set the font and text properties
+        ctx.font = `bold 48px ${font}`;
+        ctx.fillStyle = "black";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        // Draw the text on the canvas
+        ctx.fillText(inflSignature, canvas.width / 2, canvas.height / 2);
+      }
+    }
+  }, [inflSignature, font]);
 
   // Function to call the API and get the S3 upload URL
   const getS3UploadUrl = async (s3Key: string, userId: number) => {
@@ -69,6 +95,44 @@ const App: React.FC = () => {
       throw new Error("Failed to upload PDF to S3");
     }
   };
+
+  // Function to upload the image to S3 using the provided URL
+  const uploadImageToS3 = async (imgData: Blob, uploadUrl: string) => {
+    const response = await fetch(uploadUrl, {
+      method: "PUT",
+      body: imgData,
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to upload image to S3");
+    }
+  };
+
+  const generateInflSignature = async () => {
+    const canvas = inflCanvasRef.current;
+    if (canvas) {
+      const imgBlob = await new Promise<Blob>((resolve) => {
+        canvas.toBlob((blob) => {
+          resolve(blob as Blob);
+        }, "image/png");
+      });
+
+      try {
+        // Get the S3 upload URL from the API
+        const s3Key = `influencer-signature-${inflSignature}.png`; // Replace with the desired S3 key
+        const userId = 1; // Replace with the actual user ID
+        const uploadUrl = await getS3UploadUrl(s3Key, userId);
+
+        // Upload the image to S3
+        await uploadImageToS3(imgBlob, uploadUrl);
+
+        console.log("Influencer signature uploaded to S3 successfully");
+      } catch (error) {
+        console.error("Error uploading influencer signature to S3:", error);
+      }
+    }
+  };
+
   const generatePDF = async () => {
     const canvas = canvasRef.current;
     if (canvas) {
@@ -192,6 +256,16 @@ const App: React.FC = () => {
       {/* <button onClick={handleDownload}>Download Image</button>*/}
       <canvas ref={canvasRef} width={400} height={200} />
       <button onClick={generatePDF}>Generate PDF</button>
+      <div style={{ marginTop: 200 }}>
+        <canvas ref={inflCanvasRef} width={400} height={200} />
+        <button onClick={generateInflSignature}>Generate Infl signature</button>
+        <input
+          type="text"
+          value={inflSignature}
+          onChange={(e) => setInflSignature(e.target.value)}
+          placeholder="Enter signature"
+        />
+      </div>
     </div>
   );
 };
